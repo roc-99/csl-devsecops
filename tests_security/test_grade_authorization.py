@@ -1,3 +1,5 @@
+import baseline_secure_coding_api as api
+
 def login(client, username, password):
     response = client.post(
         "/login",
