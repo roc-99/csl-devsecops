@@ -12,3 +12,22 @@ def restore_grades():
 def client():
     with api.app.test_client() as client:
         yield client
+
+class Utils:
+    @staticmethod
+    def login(client, username, password):
+        response = client.post(
+            "/login",
+            data={"username": username, "password": password},
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["user"] == username
+
+
+
+
+@pytest.fixture
+def utils():
+    return Utils
