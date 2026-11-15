@@ -133,28 +133,271 @@ sid = int(student_id)
 
 
 Required behavior:
-R1 — Authentication:
-Profile access, grade access, grade updates, and material downloads require an authenticated user. The index and login endpoint may remain public. The /me endpoint may return {"user": null} when no user is authenticated.
+Only fix the above specified problems.
 
-R2 — Student privacy:
-Students may read only their own profile and grades.
+The following tests were created.
 
-R3 — Academic staff scope:
-Professors may read and update grades only for their assigned courses. In this simplified exercise, professors are not permitted to read student profile records. Administrators may read profiles and grades and update grades.
+import baseline_secure_coding_api as api
 
-R4 — Complete authorization:
-Check authorization on every relevant request. Login alone, a valid identifier, or a role name alone does not establish permission for a particular record. For a grade-list response, return only records the requester is authorized to read. Deny a request that has no permitted records; do not disclose other grades.
+#----------------- Grade update -------------------
+def test_assigned_professor_can_update_grade(client, utils):
+    utils.login(client, "prof_srs", "profpw")
+    
+    response = client.post(
+        "/grades/update",
+        json={"student_id": 1001, "course_id": "SRS", "grade": 18},
+    )
 
-R5 — Input validation:
-Student identifiers must be positive integers. Grade updates require a JSON object with an existing student identifier, a known course identifier, and a numeric grade from 0 to 20 inclusive. Boolean values are not valid grades. Reject missing fields and malformed input without applying an update. Known courses for this baseline are SRS and SSD.
+    assert response.status_code == 200
+    assert api.find_grade(1001, "SRS")["grade"] == 18
 
-R6 — File access:
-Authenticated users may download teaching materials within the materials directory. Requests must not read files outside that directory.
+def test_admin_can_update_grade(client, utils):
+    utils.login(client, "admin1", "adminpw")
 
-R7 — Error handling:
-Invalid requests must return appropriate client errors without exposing internal paths, tracebacks, or implementation exception details. Unauthenticated protected requests return 401; authenticated but
-unauthorized requests return 403. A denied or invalid update must leave stored data unchanged.
+    response = client.post(
+        "/grades/update",
+        json={"student_id": 1001, "course_id": "SRS", "grade": 18},
+    )
 
+    assert response.status_code == 200
+    assert api.find_grade(1001, "SRS")["grade"] == 18
+
+def test_unassigned_professor_cannot_update_grade(client, utils):
+    utils.login(client, "prof_srs", "profpw")
+    
+    response = client.post(
+        "/grades/update",
+        json={"student_id": 1001, "course_id": "SSD", "grade": 18},
+    )
+
+    assert response.status_code == 403
+    assert api.find_grade(1001, "SSD")["grade"] == 16
+
+def test_student_cannot_update_grade(client, utils):
+    utils.login(client, "alice", "alicepw")
+    
+    response = client.post(
+            "/grades/update",
+            json= {
+                    "student_id": 1001,
+                    "course_id": "SRS",
+                    "grade": 18,
+                }
+            )
+
+    assert response.status_code == 403
+    assert api.find_grade(1001, "SRS")["grade"] == 14
+
+def test_unauthencated_cannot_update_grade(client):
+    response = client.post(
+            "/grades/update",
+            json= {
+                    "student_id": 1001,
+                    "course_id": "SRS",
+                    "grade": 18,
+                }
+            )
+    
+    assert response.status_code == 401
+    assert api.find_grade(1001, "SRS")["grade"] == 14
+
+#---------------------- Grade read --------------------
+def test_assigned_professor_can_see_student_grades(client, utils):
+    utils.login(client, "prof_srs", "profpw")
+
+    response = client.get("/grades/1001")
+
+    assert response.status_code == 200
+
+    for grade in response.json:
+        assert grade["course_id"] == "SRS"
+
+def test_student_can_see_own_grades(client, utils):
+    utils.login(client, "alice", "alicepw")
+
+    response = client.get("/grades/1001")
+
+    assert response.status_code == 200
+
+    for grade in response.json:
+        assert grade["student_id"] == 1001
+
+def test_admin_can_see_student_grades(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/grades/1001")
+
+    assert response.status_code == 200
+    assert len(response.json) == 2
+
+def test_student_cannot_see_other_student_grades(client, utils):
+    utils.login(client, "bob", "bobpw")
+
+    response = client.get("/grades/1001")
+
+    assert response.status_code == 403
+    # Maybe add check to see if response still came
+
+def test_unauthenticated_cannot_see_student_grades(client):
+    response = client.get("/grades/1001")
+
+    assert response.status_code == 401
+
+def test_invalid_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/students/asd")
+
+    assert response.status_code == 400
+
+def test_non_existent_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/students/11")
+
+    assert response.status_code == 404
+    
+def test_invalid_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/students/asd/profile")
+
+    assert response.status_code == 400
+
+def test_non_existent_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/students/11/profile")
+
+    assert response.status_code == 404
+    
+import baseline_secure_coding_api as api
+
+def test_professor_can_change_grade(client, utils):
+    utils.login(client, "prof_srs", "profpw")
+
+    response = client.post(
+        "/grades/update",
+        json={"student_id": 1001, "course_id": "SRS", "grade": 18},
+    )
+
+    assert response.status_code == 200
+    assert api.find_grade(1001, "SRS")["grade"] == 18
+
+def test_invalid_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": "asd", "course_id": "SRS", "grade": 18}
+        )
+
+    assert response.status_code == 400
+
+def test_non_existing_student_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": 11, "course_id": "SRS", "grade": 18}
+        )
+
+    assert response.status_code == 400
+
+def test_invalid_course_id(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": 1001, "course_id": "asd", "grade": 18}
+        )
+
+    assert response.status_code == 400
+
+def test_invalid_grade(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": 1001, "course_id": "SRS", "grade": "A+"}
+        )
+
+    assert response.status_code == 400
+
+def test_out_of_range_grade_1(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": 1001, "course_id": "SRS", "grade": -1}
+        )
+
+    assert response.status_code == 400
+
+def test_out_of_range_grade_2(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={"student_id": 1001, "course_id": "SRS", "grade": 21}
+        )
+
+    assert response.status_code == 400
+
+def test_empty_json_request(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.post(
+            "/grades/update",
+            json={}
+        )
+
+    assert response.status_code == 400
+    
+def test_student_can_read_materials(client, utils):
+    utils.login(client, "alice", "alicepw")
+
+    response = client.get("/files?path=secure-coding.txt")
+
+    assert response.status_code == 200
+
+def test_unautherized_cannot_read_materials(client, utils):
+    response = client.get("/files?path=secure-coding.txt")
+
+    assert response.status_code == 401
+
+def test_student_can_see_own_profile(client, utils):
+    utils.login(client, "alice", "alicepw")
+
+    response = client.get("/students/1001/profile")
+
+    assert response.status_code == 200
+
+def test_admin_can_see_student_profile(client, utils):
+    utils.login(client, "admin1", "adminpw")
+
+    response = client.get("/students/1001/profile")
+
+    assert response.status_code == 200
+
+def test_student_cannot_see_other_student_profile(client, utils):
+    utils.login(client, "bob", "bobpw")
+
+    response = client.get("/students/1001/profile")
+
+    assert response.status_code == 403
+
+def test_professor_cannot_see_student_profile(client, utils):
+    utils.login(client, "prof_srs", "profpw")
+
+    response = client.get("/student/1001/profile")
+
+    assert response.status_code == 403
+
+def test_unauthenticated_cannot_see_student_profile(client):
+    response = client.get("/student/1001/profile")
+
+    assert response.status_code == 401
 
 Propose a minimal, reviewable patch addressing the root cause.
 Preserve the API's legitimate functionality and relevant response contracts.
