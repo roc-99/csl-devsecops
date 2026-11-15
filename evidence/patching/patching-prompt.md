@@ -131,6 +131,22 @@ sid = int(student_id)
 - R5: student identifiers must be positive integers.
 - R7: invalid requests must return appropriate client errors without exposing implementation exception details.
 
+FILE-10 — File download lacks authentication
+
+Demonstrated code facts
+
+@app.get("/files")
+def download_file():
+    raw_path = flask.request.args.get("path", "")
+    target = MATERIALS_DIR / raw_path
+    return flask.send_file(target)
+
+There is no authentication check.
+
+Security requirement basis
+
+    R1: material downloads require an authenticated user.
+    R6: authenticated users may download teaching materials within the materials directory; requests must not read files outside that directory.
 
 Required behavior:
 Only fix the above specified problems.
