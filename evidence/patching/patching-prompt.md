@@ -146,7 +146,6 @@ There is no authentication check.
 Security requirement basis
 
     R1: material downloads require an authenticated user.
-    R6: authenticated users may download teaching materials within the materials directory; requests must not read files outside that directory.
 
 Required behavior:
 Only fix the above specified problems.
