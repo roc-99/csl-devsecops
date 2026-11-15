@@ -405,12 +405,12 @@ def test_student_cannot_see_other_student_profile(client, utils):
 def test_professor_cannot_see_student_profile(client, utils):
     utils.login(client, "prof_srs", "profpw")
 
-    response = client.get("/student/1001/profile")
+    response = client.get("/students/1001/profile")
 
     assert response.status_code == 403
 
 def test_unauthenticated_cannot_see_student_profile(client):
-    response = client.get("/student/1001/profile")
+    response = client.get("/students/1001/profile")
 
     assert response.status_code == 401
 
